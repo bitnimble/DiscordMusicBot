@@ -136,6 +136,12 @@ bot.on("messageCreate", (msg) => {
 			bot.leaveVoiceChannel(activeGuilds[msg.member.guild.id].voiceChannelID);
 			activeGuilds[msg.member.guild.id] = undefined;
 		}
+	} else if (msg.content.startsWith("~~!vol ")) {
+		var volumeString = msg.content.substr(7);
+		var volume = parseFloat(volumeString);
+		if (volume != NaN) {
+			guild.voiceConn.setVolume(volume);
+		}
 	}
 });
 
