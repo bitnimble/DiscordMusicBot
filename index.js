@@ -129,6 +129,9 @@ bot.on("messageCreate", (msg) => {
 	} else if (msg.content.startsWith("~~!add ")) {
 		var url = msg.content.substr(7);
 		addSong(guild, url);
+	} else if (msg.content.startsWith("~~!addraw ")) {
+		var url = msg.content.substr(10);
+		addSongRaw(guild, { title: 'Direct stream', url: url });
 	} else if (msg.content == "~~!queue") {
 		listQueue(guild);
 	} else if (msg.content == "~~!kick") {
