@@ -1,0 +1,9 @@
+{
+	"name": "discord-music-bot",
+	"version": "1.0.0",
+	"main": "index.js",
+	"dependencies": {
+		"eris": "github:abalabahaha/eris#dev",
+		"youtube-dl": "^1.11.1"
+	}
+}
