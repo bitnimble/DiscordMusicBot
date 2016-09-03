@@ -10,43 +10,53 @@ function getStreamUrl(ytUrl, callback) {
 		if (err) {
 			console.log(err);
 			callback(null);
-		}
-		else {
-			var highestBitrate = 0;
-			var bestFormat;
-			for (var i = 0; i < info.formats.length; i++) {
-				var format = info.formats[i];
-				if (format.format.indexOf('audio only') == -1)
-					continue;
-				if (format.abr > highestBitrate) {
-					highestBitrate = format.abr;
-					bestFormat = format;
+		} else {
+			var songs = [];
+			if (Object.prototype.toString.call(info) !== '[object Array]') {
+				info = [info];
+			}
+			for (let i = 0; i < info.length; i++) {
+				let video = info[i];
+				let highestBitrate = 0;
+				let bestFormat;
+				for (let j = 0; j < video.formats.length; j++) {
+					let format = video.formats[j];
+					if (format.format.indexOf('audio only') == -1)
+						continue;
+					if (format.abr > highestBitrate) {
+						highestBitrate = format.abr;
+						bestFormat = format;
+					}
 				}
+				songs.push({ url: bestFormat.url, ytUrl: video.webpage_url, title: video.title });
 			}
 			
-			callback(bestFormat.url);
+			callback(songs);
 		}
 	});
 }
 
-function addSongRaw(guild, url, ytUrl) {
-	console.log("Added raw link: " + url);
-	if (!ytUrl)
-		ytUrl = "Raw audio stream (no youtube link)";
-	guild.queue.push( { url: url, ytUrl: ytUrl });
+function addSongRaw(guild, song) {
+	console.log("Added raw link: " + song.url);
+	if (!song.ytUrl)
+		song.ytUrl = "Raw audio stream (no youtube link)";
+	guild.queue.push(song);
 	
 	if (guild.firstSong || guild.queue.length == 1) {
 		guild.firstSong = false;
 		playNextSong(guild);
 	}
-	bot.createMessage(guild.messageChannelID, "Added a song to the queue!");
+	bot.createMessage(guild.messageChannelID, "Added '" + song.title + "' to the queue!");
 }
 
 function addSong(guild, ytUrl) {
 	console.log("Added youtube link: " + ytUrl);
-	getStreamUrl(ytUrl, function(url) {
-		if (url)
-			addSongRaw(guild, url, ytUrl);
+	getStreamUrl(ytUrl, function(songs) {
+		if (songs)
+			for (let i = 0; i < songs.length; i++) {
+				song = songs[i];
+				addSongRaw(guild, song);
+			}
 		else
 			bot.createMessage(guild.messageChannelID, "Invalid song url.");
 	});
@@ -57,7 +67,7 @@ function playNextSong(guild) {
 	var queue = guild.queue;
 	
 	if (queue.length > 0) {
-		voiceConn.playResource(queue[0].url);
+		voiceConn.playResource(queue[0].url, { inlineVolume: true });
 	}
 }
 
@@ -75,7 +85,7 @@ function listQueue(guild) {
 	} else {
 		bot.createMessage(guild.messageChannelID, "Current queue:");
 		for (var i = 0; i < queue.length; i++) {
-			bot.createMessage(guild.messageChannelID, (i+1) + ". " + queue[i].ytUrl);
+			bot.createMessage(guild.messageChannelID, (i+1) + ". " + queue[i].title);
 		}
 	}
 }
