@@ -14,13 +14,14 @@ Also please note that it takes a little bit of time to grab and extract the yout
 
 #Commands
 **~~!join** - bot joins your voice channel.  
-**~~!add** [youtube url] - adds a song to the queue.  
+**~~!add** [youtube url] - adds a song or playlist from YouTube to the queue. If you want to play a playlist, make sure that it's a playlist url and not a video with a playlist attached.  
+**~~!addraw [mp3 url]** - adds a song to the queue. Needs to be a direct stream.  
 **~~!skip** - skips the current song in the queue.  
 **~~!kick** - kicks the bot from the voice channel.  
 **~~!queue** - prints the current queue to the chat. Bot needs to have write access to the text channel.  
+**~~!vol** - adjusts the volume of the bot on the server side. Ranges from 0 to 2.0, with 1.0 = 100% volume.  
 
 # Stuff to do
-- Playlists/multiple link addition
 - Error handling/sanity checking
 - Guild config saving
 - Other features
