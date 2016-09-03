@@ -83,10 +83,11 @@ function listQueue(guild) {
 	if (guild.queue.length == 0) {
 		bot.createMessage(guild.messageChannelID, "No songs in the queue.");
 	} else {
-		bot.createMessage(guild.messageChannelID, "Current queue:");
+		var message = "Current queue:\n";
 		for (var i = 0; i < queue.length; i++) {
-			bot.createMessage(guild.messageChannelID, (i+1) + ". " + queue[i].title);
+			message += (i+1) + ". " + queue[i].title + "\n";
 		}
+		bot.createMessage(guild.messageChannelID, message);
 	}
 }
 
