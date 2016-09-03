@@ -10,6 +10,7 @@ Just a simple project to get me familiar with Eris...
 4. `node index.js` or `forever start index.js` and away you go.
 
 Note: when the bot joins a channel for the first time, it'll add a default youtube link to the queue (a 'ba dum tss' sound effect). 
+Also please note that it takes a little bit of time to grab and extract the youtube audio stream when adding a song. The bot will tell you when the song properly gets added. 
 
 #Commands
 **~~!join** - bot joins your voice channel.  
