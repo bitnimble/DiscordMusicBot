@@ -1,5 +1,5 @@
 # DiscordMusicBot
-A simple bot that accepts youtube links and plays them in Discord.
+A simple Discord Youtube and music bot that accepts youtube or direct music links and plays them in Discord.
 
 Just a simple project to get me familiar with Eris...
 
@@ -11,6 +11,8 @@ Just a simple project to get me familiar with Eris...
 
 Note: when the bot joins a channel for the first time, it'll add a default youtube link to the queue (a 'ba dum tss' sound effect). 
 Also please note that it takes a little bit of time to grab and extract the youtube audio stream when adding a song. The bot will tell you when the song properly gets added. 
+
+If the bot crashes for some reason (I have pretty much no error handling, so it'll crash it you try and "play" something that's not a Youtube video), you'll have to restart it. I recommend running it under forever or pm2, which will restart it for you. After that, you'll need to `~~!join` again even though it may appear the bot is already in the channel.
 
 #Commands
 **~~!join** - bot joins your voice channel.  
