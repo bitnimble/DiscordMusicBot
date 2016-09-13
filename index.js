@@ -154,6 +154,17 @@ bot.on("messageCreate", (msg) => {
 						playNextSong(guild);
 					}
 				});
+				
+				guild.voiceConn.on("error", () => {
+					console.log("Song failed! ----------------------------------------------------------- ");
+					bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
+					
+					guild.queue.splice(0, 1);
+					if (guild.queue.length > 0) {
+						console.log("\nStarting next track");
+						playNextSong(guild);
+					}
+				});
 			});
 		}
 		return;
