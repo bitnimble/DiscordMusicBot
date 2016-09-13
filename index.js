@@ -3,7 +3,7 @@ const youtubedl = require('youtube-dl');
 const urlHelper = require('url');
 const request = require('request');
 
-var bot = new Eris("TOKENHERE");
+let bot = new Eris("TOKENHERE");
 let SC_CLIENT_ID = 'SoundCloud client ID here';
 
 let activeGuilds = {};
