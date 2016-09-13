@@ -1,21 +1,25 @@
 const Eris = require('eris');
-var youtubedl = require('youtube-dl');
+const youtubedl = require('youtube-dl');
+const urlHelper = require('url');
+const request = require('request');
 
 var bot = new Eris("TOKENHERE");
+let SC_CLIENT_ID = 'SoundCloud client ID here';
 
-var activeGuilds = {};
+let activeGuilds = {};
 
-function getStreamUrl(ytUrl, callback) {
+function getYtStreamUrl(ytUrl, callback) {
 	youtubedl.getInfo(ytUrl, [], function(err, info) {
 		if (err) {
 			console.log(err);
 			callback(null);
 		} else {
-			var songs = [];
+			let songs = [];
 			if (Object.prototype.toString.call(info) !== '[object Array]') {
 				info = [info];
 			}
 			for (let i = 0; i < info.length; i++) {
+				//Get the highest quality audio stream
 				let video = info[i];
 				let highestBitrate = 0;
 				let bestFormat;
@@ -34,6 +38,37 @@ function getStreamUrl(ytUrl, callback) {
 			callback(songs);
 		}
 	});
+}
+
+function getScStreamUrl(scUrl, callback) {
+	let requestUrl = 'http://api.soundcloud.com/resolve?url=' + scUrl + '&client_id=' + SC_CLIENT_ID;
+
+	request({url: requestUrl, json: true}, function(err, res, body) {
+		if (!err && res.statusCode === 200) {
+			let streamUrl = body.stream_url + '?client_id=' + SC_CLIENT_ID;
+			//We do a GET again to follow the soundcloud redirect to their cdn
+			request.get(streamUrl, function(err2, res2, body2) {
+				//Callback expects an array of Song objects so we wrap it
+				callback([{ title: body.title, url: res2.request.uri.href }]);
+			});
+		} else {
+			callback(null);
+		}
+	});
+}
+
+//Callback expects an array of Song objects
+function getStreamUrl(url, callback) {
+	let urlObj = urlHelper.parse(url);
+	let hostname = urlObj.hostname;
+	console.log(hostname);
+	
+	if (hostname === 'youtube.com' || hostname === 'www.youtube.com')
+		getYtStreamUrl(url, callback);
+	else if (hostname === 'soundcloud.com' || hostname === 'www.youtube.com')
+		getScStreamUrl(url, callback);
+	else 
+		callback(null);
 }
 
 function addSongRaw(guild, song) {
@@ -63,10 +98,11 @@ function addSong(guild, ytUrl) {
 }
 
 function playNextSong(guild) {
-	var voiceConn = guild.voiceConn;
-	var queue = guild.queue;
+	let voiceConn = guild.voiceConn;
+	let queue = guild.queue;
 	
 	if (queue.length > 0) {
+		console.log("Now playing: " + queue[0].title + "; " + queue[0].url);
 		voiceConn.playResource(queue[0].url, { inlineVolume: true });
 	}
 }
@@ -79,12 +115,12 @@ function skipSong(guild) {
 }
 
 function listQueue(guild) {
-	var queue = guild.queue;
+	let queue = guild.queue;
 	if (guild.queue.length == 0) {
 		bot.createMessage(guild.messageChannelID, "No songs in the queue.");
 	} else {
-		var message = "Current queue:\n";
-		for (var i = 0; i < queue.length; i++) {
+		let message = "Current queue:\n";
+		for (let i = 0; i < queue.length; i++) {
 			message += (i+1) + ". " + queue[i].title + "\n";
 		}
 		bot.createMessage(guild.messageChannelID, message);
@@ -105,15 +141,16 @@ bot.on("messageCreate", (msg) => {
 			}).then((voiceConn) => {
 				console.log("Joined channel " + msg.member.voiceState.channelID);
 				
-				var guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
+				let guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
 				activeGuilds[msg.member.guild.id] = guild;
 				
-				addSong(guild, 'https://www.youtube.com/watch?v=6zXDo4dL7SU');
+				addSong(guild, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 				
 				guild.voiceConn.on("end", () => {
+					console.log("Song ended");
 					guild.queue.splice(0, 1);
 					if (guild.queue.length > 0) {
-						console.log("Starting next track");
+						console.log("\nStarting next track");
 						playNextSong(guild);
 					}
 				});
@@ -122,16 +159,16 @@ bot.on("messageCreate", (msg) => {
 		return;
 	}
 	
-	var guild = activeGuilds[msg.member.guild.id];
+	let guild = activeGuilds[msg.member.guild.id];
 	if (!guild)
 		return;
 	if (msg.content == "~~!skip") {
 		skipSong(guild);
 	} else if (msg.content.startsWith("~~!add ")) {
-		var url = msg.content.substr(7);
+		let url = msg.content.substr(7);
 		addSong(guild, url);
 	} else if (msg.content.startsWith("~~!addraw ")) {
-		var url = msg.content.substr(10);
+		let url = msg.content.substr(10);
 		addSongRaw(guild, { title: 'Direct stream', url: url });
 	} else if (msg.content == "~~!queue") {
 		listQueue(guild);
@@ -141,8 +178,8 @@ bot.on("messageCreate", (msg) => {
 			activeGuilds[msg.member.guild.id] = undefined;
 		}
 	} else if (msg.content.startsWith("~~!vol ")) {
-		var volumeString = msg.content.substr(7);
-		var volume = parseFloat(volumeString);
+		let volumeString = msg.content.substr(7);
+		let volume = parseFloat(volumeString);
 		if (volume != NaN) {
 			guild.voiceConn.setVolume(volume);
 		}
