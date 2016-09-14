@@ -114,6 +114,7 @@ function skipSong(guild) {
 	}
 }
 
+let messageLengthCap = 2000;
 function listQueue(guild) {
 	let queue = guild.queue;
 	if (guild.queue.length == 0) {
@@ -123,7 +124,18 @@ function listQueue(guild) {
 		for (let i = 0; i < queue.length; i++) {
 			message += (i+1) + ". " + queue[i].title + "\n";
 		}
-		bot.createMessage(guild.messageChannelID, message);
+		
+		if (message.length > messageLengthCap) {
+			let messageCount = Math.ceil(message.length / messageLengthCap);
+			let messages = [];
+			let j = 0;
+			for (let i = 0; i < messageCount - 1; i++, j+= messageLengthCap) {
+				bot.createMessage(guild.messageChannelID, message.substr(j, messageLengthCap));
+			}
+			bot.createMessage(guild.messageChannelID, message.substr(j));
+		} else {
+			bot.createMessage(guild.messageChannelID, message);
+		}
 	}
 }
 
