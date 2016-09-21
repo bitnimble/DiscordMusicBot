@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"dependencies": {
-		"eris": "github:abalabahaha/eris#dev",
+		"eris": "github:abalabahaha/eris",
 		"youtube-dl": "^1.11.1"
 	}
 }
