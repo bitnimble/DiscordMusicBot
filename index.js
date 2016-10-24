@@ -2,11 +2,38 @@ const Eris = require('eris');
 const youtubedl = require('youtube-dl');
 const urlHelper = require('url');
 const request = require('request');
+const fs = require('fs');
 
-let bot = new Eris("TOKENHERE");
-let SC_CLIENT_ID = 'SoundCloud client ID here';
 
-let activeGuilds = {};
+/*
+Guild object:
+{
+ 	messageChannelID = the message channel it will respond on,
+	voiceChannelID = the id of the voice channel it is in,
+	voiceConn = the voice connection of the voice channel it is in,
+	queue = the current queue of songs (Song[]),
+	firstSong = whether or not it needs to play the first song yet
+}
+
+Song object:
+{
+	url = direct url to the mp3 stream,
+	ytUrl = original youtube url,
+	title = song display name
+}
+
+*/
+let activeGuilds = new Map();
+
+fs.readFile("activeGuildState", (err, data) => {
+	if (!err) {
+		let saveObject = JSON.parse(data);
+		for (let i = 0; i < saveObject.guilds.length; i++) {
+			let guild = { queue: saveObject.queues[i] };
+			activeGuilds.set(saveObject.guilds[i], guild);
+		}
+	}	
+});
 
 function getYtStreamUrl(ytUrl, callback) {
 	youtubedl.getInfo(ytUrl, [], function(err, info) {
@@ -76,6 +103,7 @@ function addSongRaw(guild, song) {
 	if (!song.ytUrl)
 		song.ytUrl = "Raw audio stream (no youtube link)";
 	guild.queue.push(song);
+	saveGuildStatus();
 	
 	if (guild.firstSong || guild.queue.length == 1) {
 		guild.firstSong = false;
@@ -84,6 +112,10 @@ function addSongRaw(guild, song) {
 	bot.createMessage(guild.messageChannelID, "Added '" + song.title + "' to the queue!");
 }
 
+//Note that we process the song url (if it's youtube or soundcloud) when we add it, not when
+//we play it. Although this means that some song mp3s may expire if the queue is very long,
+//it means we can grab the title for the display name. I'll probably add something later to make
+//it regenerate an mp3 link if it tries to play and fails instantly.
 function addSong(guild, ytUrl) {
 	console.log("Added youtube link: " + ytUrl);
 	getStreamUrl(ytUrl, function(songs) {
@@ -97,6 +129,7 @@ function addSong(guild, ytUrl) {
 	});
 }
 
+//Starts playing the next song.
 function playNextSong(guild) {
 	let voiceConn = guild.voiceConn;
 	let queue = guild.queue;
@@ -107,6 +140,7 @@ function playNextSong(guild) {
 	}
 }
 
+//Skips the current song in the queue.
 function skipSong(guild) {
 	if (guild.voiceConn.playing) {
 		guild.voiceConn.stopPlaying();
@@ -139,68 +173,116 @@ function listQueue(guild) {
 	}
 }
 
+function listNowPlaying(guild) {
+	let queue = guild.queue;
+	if (guild.queue.length == 0) {
+		bot.createMessage(guild.messageChannelID, "No songs is currently playing.");
+	} else {
+		let songName = queue[0].title;
+		songName.replace("*", "\*");
+		bot.createMessage(guild.messageChannelID, "**Now playing: " + songName + "**");
+	}
+}
+
+function initVoiceConnection(msg, voiceConn) {
+	console.log("Joined channel " + msg.member.voiceState.channelID);
+	
+	let guild = activeGuilds.get(msg.member.guild.id);
+	let newGuild = false;
+	if (guild) {
+		guild.messageChannelID = msg.channel.id;
+		guild.voiceChannelID = msg.member.voiceState.channelID;
+		guild.voiceConn = voiceConn;
+	} else {
+		guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
+		newGuild = true;
+	}
+	
+	activeGuilds.set(msg.member.guild.id, guild);
+	if (newGuild)
+		addSong(guild, 'https://www.youtube.com/watch?v=nmPPCkF6-fk');
+	else
+		playNextSong(guild);
+	
+	let nextSong = () => {
+		guild.queue.splice(0, 1);
+		saveGuildStatus();
+		if (guild.queue.length > 0) {
+			console.log("\nStarting next track");
+			playNextSong(guild);
+		}
+	};
+	
+	guild.voiceConn.on("end", () => {
+		console.log("Song ended");
+		nextSong();
+	});
+	
+	guild.voiceConn.on("error", () => {
+		console.log("Song failed! ----------------------------------------------------------- ");
+		bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
+		nextSong();
+	});
+}
+
+function saveGuildStatus() {
+	let saveObject = { guilds: [], queues: [] };
+	for (let [id, guild] of activeGuilds) {
+		saveObject.guilds.push(id);
+		saveObject.queues.push(guild.queue);
+	}
+	
+	fs.writeFile("activeGuildState", JSON.stringify(saveObject), function (err) {
+		if (err)
+			console.log(err);
+	});
+}
+
 bot.on("ready", () => {
 	console.log("Ready!");
 });
 
+//Command processing
 bot.on("messageCreate", (msg) => {
-	if (msg.content == "~~!join") {		
-		if (activeGuilds[msg.member.guild.id]) {
+	//Join a voice channel
+	if (msg.content == "~~!join") {
+		let guild = activeGuilds.get(msg.member.guild.id);
+		if (guild && guild.initialised) {
 			console.log("Already in guild ID " + msg.member.guild.id + "!");
 		} else {
 			bot.joinVoiceChannel(msg.member.voiceState.channelID).catch((err) => {
 				console.log(err);
 			}).then((voiceConn) => {
-				console.log("Joined channel " + msg.member.voiceState.channelID);
-				
-				let guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
-				activeGuilds[msg.member.guild.id] = guild;
-				
-				addSong(guild, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-				
-				guild.voiceConn.on("end", () => {
-					console.log("Song ended");
-					guild.queue.splice(0, 1);
-					if (guild.queue.length > 0) {
-						console.log("\nStarting next track");
-						playNextSong(guild);
-					}
-				});
-				
-				guild.voiceConn.on("error", () => {
-					console.log("Song failed! ----------------------------------------------------------- ");
-					bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
-					
-					guild.queue.splice(0, 1);
-					if (guild.queue.length > 0) {
-						console.log("\nStarting next track");
-						playNextSong(guild);
-					}
-				});
+				initVoiceConnection(msg, voiceConn);
+				guild.initialised = true;
 			});
 		}
 		return;
 	}
 	
-	let guild = activeGuilds[msg.member.guild.id];
+	let guild = activeGuilds.get(msg.member.guild.id);
+	let url;
 	if (!guild)
 		return;
-	if (msg.content == "~~!skip") {
+	if (msg.content == "~~!skip") { //Skip the current track in the queue
 		skipSong(guild);
-	} else if (msg.content.startsWith("~~!add ")) {
-		let url = msg.content.substr(7);
+	} else if (msg.content.startsWith("~~!add ")) { //Add a song to the queue
+		url = msg.content.substr(7);
 		addSong(guild, url);
-	} else if (msg.content.startsWith("~~!addraw ")) {
-		let url = msg.content.substr(10);
+	} else if (msg.content.startsWith("~~!addraw ")) { //Add a direct mp3/stream to the queue
+		url = msg.content.substr(10);
+		if (!url.startsWith("http://") && !url.startsWith("https://"))
+			url = "http://" + url;
 		addSongRaw(guild, { title: 'Direct stream', url: url });
-	} else if (msg.content == "~~!queue") {
+	} else if (msg.content == "~~!queue") { //List the current queue
 		listQueue(guild);
-	} else if (msg.content == "~~!kick") {
-		if (activeGuilds[msg.member.guild.id]) {
-			bot.leaveVoiceChannel(activeGuilds[msg.member.guild.id].voiceChannelID);
-			activeGuilds[msg.member.guild.id] = undefined;
-		}
-	} else if (msg.content.startsWith("~~!vol ")) {
+	} else if (msg.content == "~~!np") {
+		listNowPlaying(guild);
+	} else if (msg.content == "~~!kick") { //Kick the bot from the VC
+		bot.leaveVoiceChannel(guild.voiceChannelID);
+		activeGuilds.delete(msg.member.guild.id);
+		saveGuildStatus();
+	} else if (msg.content.startsWith("~~!vol ")) { //Set the current volume
 		let volumeString = msg.content.substr(7);
 		let volume = parseFloat(volumeString);
 		if (volume != NaN) {
