@@ -197,9 +197,11 @@ function initVoiceConnection(msg, voiceConn) {
 		guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
 		newGuild = true;
 	}
+	guild.initialised = true;
+	bot.createMessage(guild.messageChannelID, "o7");
 	
 	activeGuilds.set(msg.member.guild.id, guild);
-	if (newGuild)
+	if (newGuild || guild.queue.length == 0)
 		addSong(guild, 'https://www.youtube.com/watch?v=nmPPCkF6-fk');
 	else
 		playNextSong(guild);
@@ -214,14 +216,18 @@ function initVoiceConnection(msg, voiceConn) {
 	};
 	
 	guild.voiceConn.on("end", () => {
-		console.log("Song ended");
-		nextSong();
+		if (guild.initialised) {
+			console.log("Song ended");
+			nextSong();
+		}
 	});
 	
 	guild.voiceConn.on("error", () => {
-		console.log("Song failed! ----------------------------------------------------------- ");
-		bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
-		nextSong();
+		if (guild.initialised) {
+			console.log("Song failed! ----------------------------------------------------------- ");
+			bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
+			nextSong();
+		}
 	});
 }
 
@@ -245,8 +251,8 @@ bot.on("ready", () => {
 //Command processing
 bot.on("messageCreate", (msg) => {
 	//Join a voice channel
+	let guild = activeGuilds.get(msg.member.guild.id);
 	if (msg.content == "~~!join") {
-		let guild = activeGuilds.get(msg.member.guild.id);
 		if (guild && guild.initialised) {
 			console.log("Already in guild ID " + msg.member.guild.id + "!");
 		} else {
@@ -254,13 +260,11 @@ bot.on("messageCreate", (msg) => {
 				console.log(err);
 			}).then((voiceConn) => {
 				initVoiceConnection(msg, voiceConn);
-				guild.initialised = true;
 			});
 		}
 		return;
 	}
 	
-	let guild = activeGuilds.get(msg.member.guild.id);
 	let url;
 	if (!guild)
 		return;
@@ -279,15 +283,32 @@ bot.on("messageCreate", (msg) => {
 	} else if (msg.content == "~~!np") {
 		listNowPlaying(guild);
 	} else if (msg.content == "~~!kick") { //Kick the bot from the VC
+		guild.initialised = false;
 		bot.leaveVoiceChannel(guild.voiceChannelID);
-		activeGuilds.delete(msg.member.guild.id);
-		saveGuildStatus();
 	} else if (msg.content.startsWith("~~!vol ")) { //Set the current volume
 		let volumeString = msg.content.substr(7);
 		let volume = parseFloat(volumeString);
 		if (volume != NaN) {
 			guild.voiceConn.setVolume(volume);
 		}
+	} else if (msg.content.startsWith("~~!eval ")) {
+		if (msg.author.id != ownerId) {
+			bot.createMessage(msg.channel.id, "Nobody likes to be Alone.");
+			return;
+		}
+		let command = msg.content.substr(8);
+		let result;
+		try {
+			result = eval(command);
+		} catch (e) {
+			result = e;
+		}
+		bot.createMessage(msg.channel.id, result);
+	} else if (msg.content == "~~!clear") {
+		let firstSong = guild.queue[0];
+		guild.queue = [];
+		if (firstSong)
+			guild.queue.push(firstSong);
 	}
 });
 
