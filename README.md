@@ -16,7 +16,7 @@ If the bot crashes for some reason (I have pretty much no error handling, so it'
 
 #Commands
 **~~!join** - bot joins your voice channel.  
-**~~!add** [youtube url] - adds a song or playlist from YouTube to the queue. If you want to play a playlist, make sure that it's a playlist url and not a video with a playlist attached.  
+**~~!add [youtube url]** - adds a song or playlist from YouTube to the queue. If you want to play a playlist, make sure that it's a playlist url and not a video with a playlist attached.  
 **~~!addraw [mp3 url]** - adds a song to the queue. Needs to be a direct stream.  
 **~~!skip** - skips the current song in the queue.  
 **~~!kick** - kicks the bot from the voice channel.  
