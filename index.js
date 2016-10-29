@@ -4,6 +4,9 @@ const urlHelper = require('url');
 const request = require('request');
 const fs = require('fs');
 
+let bot = new Eris("Discord bot token");
+let SC_CLIENT_ID = "Soundcloud client id";
+let ownerId = "Discord user id";
 
 /*
 Guild object:
