@@ -4,7 +4,6 @@ const urlHelper = require('url');
 const request = require('request');
 const fs = require('fs');
 
-
 /*
 Guild object:
 {
