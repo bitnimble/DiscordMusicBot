@@ -30,10 +30,14 @@ let activeGuilds = new Map();
 
 fs.readFile("activeGuildState", (err, data) => {
 	if (!err) {
-		let saveObject = JSON.parse(data);
-		for (let i = 0; i < saveObject.guilds.length; i++) {
-			let guild = { queue: saveObject.queues[i] };
-			activeGuilds.set(saveObject.guilds[i], guild);
+		try {
+			let saveObject = JSON.parse(data);
+			for (let i = 0; i < saveObject.guilds.length; i++) {
+				let guild = { queue: saveObject.queues[i] };
+				activeGuilds.set(saveObject.guilds[i], guild);
+			}
+		} catch (e) {
+			console.log("Error when parsing activeGuildState:\n" + e);
 		}
 	}	
 });
@@ -232,6 +236,10 @@ function initVoiceConnection(msg, voiceConn) {
 			nextSong();
 		}
 	});
+	
+	guild.voiceConn.on("disconnect", () => {
+		guild.initialised = false;
+	});
 }
 
 function saveGuildStatus() {
@@ -259,10 +267,10 @@ bot.on("messageCreate", (msg) => {
 		if (guild && guild.initialised) {
 			console.log("Already in guild ID " + msg.member.guild.id + "!");
 		} else {
-			bot.joinVoiceChannel(msg.member.voiceState.channelID).catch((err) => {
-				console.log(err);
-			}).then((voiceConn) => {
+			bot.joinVoiceChannel(msg.member.voiceState.channelID).then((voiceConn) => {
 				initVoiceConnection(msg, voiceConn);
+			}).catch((err) => {
+				console.log(err);
 			});
 		}
 		return;
