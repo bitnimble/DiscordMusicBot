@@ -1,7 +1,7 @@
 {
-	discordToken: "Your Discord bot token here (compulsory)",
-	soundcloudId: "Your soundcloud API ID here (optional)",
-	owners: [
+	"discordToken": "Your Discord bot token here (compulsory)",
+	"soundcloudId": "Your soundcloud API ID here (optional)",
+	"owners": [
 		"Your user id here (e.g. bob#1234) (required for the eval command)"
 	]
 }

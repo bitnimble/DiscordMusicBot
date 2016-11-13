@@ -34,7 +34,6 @@ function main() {
 	/*
 	Guild object:
 	{
-		messageChannelID = the message channel it will respond on,
 		voiceChannelID = the id of the voice channel it is in,
 		voiceConn = the voice connection of the voice channel it is in,
 		queue = the current queue of songs (Song[]),
@@ -50,7 +49,7 @@ function main() {
 
 	*/
 	let activeGuilds = new Map();
-
+	
 	fs.readFile("activeGuildState", (err, data) => {
 		if (!err) {
 			try {
@@ -128,7 +127,7 @@ function main() {
 			callback(null);
 	}
 
-	function addSongRaw(guild, song) {
+	function addSongRaw(guild, song, channel) {
 		console.log("Added raw link: " + song.url);
 		if (!song.ytUrl)
 			song.ytUrl = "Raw audio stream (no youtube link)";
@@ -139,23 +138,23 @@ function main() {
 			guild.firstSong = false;
 			playNextSong(guild);
 		}
-		bot.createMessage(guild.messageChannelID, "Added '" + song.title + "' to the queue!");
+		bot.createMessage(channel, "Added '" + song.title + "' to the queue!");
 	}
 
 	//Note that we process the song url (if it's youtube or soundcloud) when we add it, not when
 	//we play it. Although this means that some song mp3s may expire if the queue is very long,
 	//it means we can grab the title for the display name. I'll probably add something later to make
 	//it regenerate an mp3 link if it tries to play and fails instantly.
-	function addSong(guild, ytUrl) {
+	function addSong(guild, ytUrl, channel) {
 		console.log("Added youtube link: " + ytUrl);
 		getStreamUrl(ytUrl, function(songs) {
 			if (songs)
 				for (let i = 0; i < songs.length; i++) {
 					song = songs[i];
-					addSongRaw(guild, song);
+					addSongRaw(guild, song, channel);
 				}
 			else
-				bot.createMessage(guild.messageChannelID, "Invalid song url.");
+				bot.createMessage(channel, "Invalid song url.");
 		});
 	}
 
@@ -165,8 +164,8 @@ function main() {
 		let queue = guild.queue;
 		
 		if (queue.length > 0) {
-			console.log("Now playing: " + queue[0].title + "; " + queue[0].url);
-			voiceConn.playResource(queue[0].url, { inlineVolume: true });
+			console.log("Now playing: " + queue[0].title + "; " + queue[0].url);			
+			voiceConn.play(queue[0].url);
 		}
 	}
 
@@ -179,38 +178,37 @@ function main() {
 	}
 
 	let messageLengthCap = 2000;
-	function listQueue(guild) {
+	function listQueue(guild, channel) {
 		let queue = guild.queue;
 		if (guild.queue.length == 0) {
-			bot.createMessage(guild.messageChannelID, "No songs in the queue.");
+			bot.createMessage(channel, "No songs in the queue.");
 		} else {
 			let message = "Current queue:\n";
 			for (let i = 0; i < queue.length; i++) {
 				message += (i+1) + ". " + queue[i].title + "\n";
 			}
-			
 			if (message.length > messageLengthCap) {
 				let messageCount = Math.ceil(message.length / messageLengthCap);
 				let messages = [];
 				let j = 0;
 				for (let i = 0; i < messageCount - 1; i++, j+= messageLengthCap) {
-					bot.createMessage(guild.messageChannelID, message.substr(j, messageLengthCap));
+					bot.createMessage(channel, message.substr(j, messageLengthCap));
 				}
-				bot.createMessage(guild.messageChannelID, message.substr(j));
+				bot.createMessage(channel, message.substr(j));
 			} else {
-				bot.createMessage(guild.messageChannelID, message);
+				bot.createMessage(channel, message);
 			}
 		}
 	}
 
-	function listNowPlaying(guild) {
+	function listNowPlaying(guild, channel) {
 		let queue = guild.queue;
 		if (guild.queue.length == 0) {
-			bot.createMessage(guild.messageChannelID, "No songs is currently playing.");
+			bot.createMessage(channel, "No songs is currently playing.");
 		} else {
 			let songName = queue[0].title;
 			songName.replace("*", "\*");
-			bot.createMessage(guild.messageChannelID, "**Now playing: **" + songName);
+			bot.createMessage(channel, "**Now playing: **" + songName);
 		}
 	}
 
@@ -220,19 +218,18 @@ function main() {
 		let guild = activeGuilds.get(msg.member.guild.id);
 		let newGuild = false;
 		if (guild) {
-			guild.messageChannelID = msg.channel.id;
 			guild.voiceChannelID = msg.member.voiceState.channelID;
 			guild.voiceConn = voiceConn;
 		} else {
-			guild = { messageChannelID: msg.channel.id, voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
+			guild = { voiceChannelID: msg.member.voiceState.channelID, voiceConn: voiceConn, queue: [], firstSong: true };
 			newGuild = true;
 		}
 		guild.initialised = true;
-		bot.createMessage(guild.messageChannelID, "o7");
+		bot.createMessage(msg.channel.id, "o7");
 		
 		activeGuilds.set(msg.member.guild.id, guild);
 		if (newGuild || guild.queue.length == 0)
-			addSong(guild, 'https://www.youtube.com/watch?v=nmPPCkF6-fk');
+			addSong(guild, 'https://www.youtube.com/watch?v=nmPPCkF6-fk', msg.channel.id);
 		else
 			playNextSong(guild);
 		
@@ -245,17 +242,18 @@ function main() {
 			}
 		};
 		
-		guild.voiceConn.on("end", () => {
+		guild.voiceConn.setVolume(0.1);
+		guild.voiceConn.on("end", (msg) => {
 			if (guild.initialised) {
-				console.log("Song ended");
+				console.log("Song ended\n" + msg);
 				nextSong();
 			}
 		});
 		
-		guild.voiceConn.on("error", () => {
+		guild.voiceConn.on("error", (error) => {
 			if (guild.initialised) {
-				console.log("Song failed! ----------------------------------------------------------- ");
-				bot.createMessage(guild.messageChannelID, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
+				console.log("Song failed! ----------------------------------------------------------- " + error);
+				bot.createMessage(msg.channel.id, "Song encoding failed! Skipping track '" + guild.queue[0].title + "'");
 				nextSong();
 			}
 		});
@@ -278,7 +276,7 @@ function main() {
 		});
 	}
 
-	function checkOwner() {
+	function checkOwner(msg) {
 		let isOwner = false;
 		for (let i = 0; i < owners.length; i++) {
 			if (owners[i] == msg.author.id) {
@@ -320,16 +318,16 @@ function main() {
 			skipSong(guild);
 		} else if (msg.content.startsWith("~~!add ")) { //Add a song to the queue
 			url = msg.content.substr(7);
-			addSong(guild, url);
+			addSong(guild, url, msg.channel.id);
 		} else if (msg.content.startsWith("~~!addraw ")) { //Add a direct mp3/stream to the queue
 			url = msg.content.substr(10);
 			if (!url.startsWith("http://") && !url.startsWith("https://"))
 				url = "http://" + url;
-			addSongRaw(guild, { title: 'Direct stream', url: url });
+			addSongRaw(guild, { title: 'Direct stream', url: url }, msg.channel.id);
 		} else if (msg.content == "~~!queue") { //List the current queue
-			listQueue(guild);
+			listQueue(guild, msg.channel.id);
 		} else if (msg.content == "~~!np") {
-			listNowPlaying(guild);
+			listNowPlaying(guild, msg.channel.id);
 		} else if (msg.content == "~~!kick") { //Kick the bot from the VC
 			guild.initialised = false;
 			bot.leaveVoiceChannel(guild.voiceChannelID);
@@ -340,7 +338,7 @@ function main() {
 				guild.voiceConn.setVolume(volume);
 			}
 		} else if (msg.content.startsWith("~~!eval ")) { //Dynamically evaluate javascript commands
-			let isOwner = checkOwner();
+			let isOwner = checkOwner(msg);
 			if (!isOwner)
 				return;
 			let command = msg.content.substr(8);
