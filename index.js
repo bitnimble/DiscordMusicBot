@@ -49,20 +49,6 @@ function main() {
 
 	*/
 	let activeGuilds = new Map();
-	
-	fs.readFile("activeGuildState", (err, data) => {
-		if (!err) {
-			try {
-				let saveObject = JSON.parse(data);
-				for (let i = 0; i < saveObject.guilds.length; i++) {
-					let guild = { queue: saveObject.queues[i] };
-					activeGuilds.set(saveObject.guilds[i], guild);
-				}
-			} catch (e) {
-				console.log("Error when parsing activeGuildState:\n" + e);
-			}
-		}
-	});
 
 	function getYtStreamUrl(ytUrl, callback) {
 		youtubedl.getInfo(ytUrl, [], function(err, info) {
@@ -356,6 +342,20 @@ function main() {
 				guild.queue.push(firstSong);
 		}
 	});
-
-	bot.connect();
+	
+	fs.readFile("activeGuildState", (err, data) => {
+		if (!err) {
+			try {
+				let saveObject = JSON.parse(data);
+				for (let i = 0; i < saveObject.guilds.length; i++) {
+					let guild = { queue: saveObject.queues[i] };
+					activeGuilds.set(saveObject.guilds[i], guild);
+				}
+			} catch (e) {
+				console.log("Error when parsing activeGuildState:\n" + e);
+			} finally {
+				bot.connect();
+			}
+		}
+	});
 }
