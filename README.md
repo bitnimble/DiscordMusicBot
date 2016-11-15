@@ -6,8 +6,8 @@ Just a simple project to get me familiar with Eris...
 # Instructions
 1. Pull
 2. `npm install`
-3. Add your bot token to the top of index.js
-4. `node index.js` or `forever start index.js` and away you go.
+3. Configure 'config.json' with your token information
+4. `node index.js`/`forever start index.js`/`pm2 start index.js` and away you go.
 
 Note: when the bot joins a channel for the first time, it'll add a default youtube link to the queue (a 'ba dum tss' sound effect). 
 Also please note that it takes a little bit of time to grab and extract the youtube audio stream when adding a song. The bot will tell you when the song properly gets added. 
