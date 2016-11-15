@@ -215,7 +215,7 @@ function main() {
 		
 		activeGuilds.set(msg.member.guild.id, guild);
 		if (newGuild || guild.queue.length == 0)
-			addSong(guild, 'https://www.youtube.com/watch?v=nmPPCkF6-fk', msg.channel.id);
+			addSong(guild, 'https://www.youtube.com/watch?v=6zXDo4dL7SU', msg.channel.id);
 		else
 			playNextSong(guild);
 		
