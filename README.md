@@ -22,6 +22,7 @@ If the bot crashes for some reason, you'll have to restart it. I recommend runni
 **\~~!kick** - kicks the bot from the voice channel.  
 **\~~!np** - prints the current playing song to the chat. Bot needs to have write access to the text channel.  
 **\~~!queue** - prints the current queue to the chat. Bot needs to have write access to the text channel.  
+**\~~!eval** - evaluates a javascript statement. Requires owner permissions.  
 **\~~!vol** - adjusts the volume of the bot on the server side. Ranges from 0 to 2.0, with 1.0 = 100% volume.   
 
 # Stuff to do
