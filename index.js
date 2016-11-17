@@ -4,9 +4,11 @@ const urlHelper = require('url');
 const request = require('request');
 const fs = require('fs');
 
+let configObject;
 let bot;
 let SC_CLIENT_ID;
 let owners;
+let mods;
 let loaded = false;
 
 //Preloading stage
@@ -18,10 +20,11 @@ fs.readFile("config.json", (err, data) => {
 	}
 	
 	try {
-		let configObject = JSON.parse(data);
+		configObject = JSON.parse(data);
 		bot = new Eris(configObject.discordToken);
 		SC_CLIENT_ID = configObject.soundcloudId;
-		owners = configObject.owners;
+        owners = configObject.owners;
+        mods = configObject.mods;
 	} catch (e) {
 		console.log("Error when reading config.json. Please make sure you have configured it correctly.\n" + e);
 		process.exit(1);
@@ -262,19 +265,26 @@ function main() {
 		});
 	}
 
-	function checkOwner(msg) {
-		let isOwner = false;
-		for (let i = 0; i < owners.length; i++) {
-			if (owners[i] == msg.author.id) {
-				isOwner = true;
-				break;
-			}
-		}
+    function checkOwner(msg) {
+        let isOwner = checkContains(owners, msg.author.id);
 		if (!isOwner) {
 			bot.createMessage(msg.channel.id, "Nobody likes to be Alone.");
 		}
 		return isOwner;
-	}
+    }
+
+    function checkMod(msg) {
+        return checkContains(mods, msg.author.id);
+    }
+
+    function checkContains(arr, value) {
+        let contains = false;
+        for (let i = 0; i < arr.length && !contains; i++) {
+            if (arr[i] == value)
+                contains = true;
+        }
+        return contains;
+    }
 
 	bot.on("ready", () => {
 		console.log("Ready!");
@@ -295,11 +305,21 @@ function main() {
 				});
 			}
 			return;
-		}
-		
+        }
+
+        //These commands can be executed by anybody
+        if (!guild)
+            return;
+        if (msg.content == "~~!np") {
+            listNowPlaying(guild, msg.channel.id);
+        } else if (msg.content == "~~!queue") { //List the current queue
+            listQueue(guild, msg.channel.id);
+        }
+
+        //The remaining commands require mod permissions
+        if (!checkMod(msg))
+            return;
 		let url;
-		if (!guild)
-			return;
 		if (msg.content == "~~!skip") { //Skip the current track in the queue
 			skipSong(guild);
 		} else if (msg.content.startsWith("~~!add ")) { //Add a song to the queue
@@ -310,10 +330,6 @@ function main() {
 			if (!url.startsWith("http://") && !url.startsWith("https://"))
 				url = "http://" + url;
 			addSongRaw(guild, { title: 'Direct stream', url: url }, msg.channel.id);
-		} else if (msg.content == "~~!queue") { //List the current queue
-			listQueue(guild, msg.channel.id);
-		} else if (msg.content == "~~!np") {
-			listNowPlaying(guild, msg.channel.id);
 		} else if (msg.content == "~~!kick") { //Kick the bot from the VC
 			guild.initialised = false;
 			bot.leaveVoiceChannel(guild.voiceChannelID);
@@ -323,24 +339,35 @@ function main() {
 			if (volume != NaN) {
 				guild.voiceConn.setVolume(volume);
 			}
-		} else if (msg.content.startsWith("~~!eval ")) { //Dynamically evaluate javascript commands
-			let isOwner = checkOwner(msg);
-			if (!isOwner)
-				return;
-			let command = msg.content.substr(8);
-			let result;
-			try {
-				result = eval(command);
-			} catch (e) {
-				result = e;
-			}
-			bot.createMessage(msg.channel.id, result);
-		} else if (msg.content == "~~!clear") { //Clear the queue
+        } else if (msg.content == "~~!clear") { //Clear the queue
 			let firstSong = guild.queue[0];
 			guild.queue = [];
 			if (firstSong)
 				guild.queue.push(firstSong);
-		}
+        }
+        
+        //And these commands require owner AND mod permissions
+        if (!checkOwner(msg))
+            return;
+        if (msg.content.startsWith("~~!eval ")) { //Dynamically evaluate javascript commands
+            let command = msg.content.substr(8);
+            let result;
+            try {
+                result = eval(command);
+            } catch (e) {
+                result = e;
+            }
+            bot.createMessage(msg.channel.id, '' + result); //TODO: split messages over 2k limit
+        } else if (msg.content.startsWith("~~!addmod ")) { //Adds a new user to the modlist
+            let userId = msg.content.substr(10);
+            mods.push(userId);
+            fs.writeFile("config.json", JSON.stringify(configObject), (err) => {
+                if (err)
+                    console.log("An error occurred when updating config.json with a new mod: " + userId);
+                else
+                    console.log("config.json updated with a new mod: " + userId);
+            });
+        }
 	});
 	
 	fs.readFile("activeGuildState", (err, data) => {
