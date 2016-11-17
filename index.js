@@ -266,11 +266,7 @@ function main() {
 	}
 
     function checkOwner(msg) {
-        let isOwner = checkContains(owners, msg.author.id);
-		if (!isOwner) {
-			bot.createMessage(msg.channel.id, "Nobody likes to be Alone.");
-		}
-		return isOwner;
+        return checkContains(owners, msg.author.id);
     }
 
     function checkMod(msg) {
@@ -364,8 +360,10 @@ function main() {
             fs.writeFile("config.json", JSON.stringify(configObject), (err) => {
                 if (err)
                     console.log("An error occurred when updating config.json with a new mod: " + userId);
-                else
+                else {
                     console.log("config.json updated with a new mod: " + userId);
+                    bot.createMessage(msg.channel.id, "New mod added!");
+                }
             });
         }
 	});
